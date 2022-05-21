@@ -12,3 +12,5 @@ arr = np.array([[1,2,3],
 print(arr[0,:])
 # 取出第一列
 print(arr[:, 1:2])
+
+P = np.array([[0],[0]])

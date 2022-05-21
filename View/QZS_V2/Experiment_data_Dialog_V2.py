@@ -12,13 +12,14 @@ BSER_DIR=os.path.dirname(os.path.realpath(__file__))
 class Experiment_data_Dialog_V2(QWidget):
 
 
-    input_data=pyqtSignal(ndarray)
+    input_displacemeng_data=pyqtSignal(ndarray)
+    input_coefficient_data=pyqtSignal(ndarray)
 
     def __init__(self,*args,**kwargs):
         super(Experiment_data_Dialog_V2, self).__init__(*args,**kwargs)
         self.fileName = ""
 
-        self.setAcceptDrops(True)
+
         self.init_ui()
 
     def init_ui(self):
@@ -30,14 +31,7 @@ class Experiment_data_Dialog_V2(QWidget):
             self.native.hide()
         self.setLayout(self.init_file())
 
-    def dragEnterEvent(self, evn):
-        self.openFileNameLabel.setText(evn.mimeData().text())
-        self.save_file_path(evn.mimeData().text())
-        # 鼠标放开函数事件
-        evn.accept()
-    def dragMoveEvent(self, evn):
-        self.openFileNameLabel.setStyleSheet('background: rgb(%d, %d, %d);' % (
-                220, 220, 220))
+
 
     def init_file(self):
 
@@ -49,10 +43,10 @@ class Experiment_data_Dialog_V2(QWidget):
 
         self.openFileNameButton = QPushButton("打开实验数据")
 
-        self.label=QLabel()
+        self.label=Label()
         self.label.setPixmap(QPixmap(os.path.join(BSER_DIR, "images/drag_file.png")))
         self.label.setAlignment(Qt.AlignCenter)
-
+        self.label.emit_filepath.connect(self.show_and_save)
 
         self.radio1 = QRadioButton("初始数据")
         self.radio2 = QRadioButton("谐波系数数据")
@@ -61,10 +55,11 @@ class Experiment_data_Dialog_V2(QWidget):
 
         self.openFileNameButton.clicked.connect(self.setOpenFileName)
 
+
+        mainLayout.addWidget(self.openFileNameButton, 0, 0)
+        mainLayout.addWidget(self.openFileNameEdit, 0, 1)
         mainLayout.addWidget(self.radio1, 1, 0,)
-        mainLayout.addWidget(self.radio2, 1, 1)
-        mainLayout.addWidget(self.openFileNameButton, 2, 0)
-        mainLayout.addWidget(self.openFileNameEdit, 2, 1)
+        mainLayout.addWidget(self.radio2, 2, 0)
 
 
         import json
@@ -89,13 +84,13 @@ class Experiment_data_Dialog_V2(QWidget):
         if not self.native.isChecked():
             options |= QFileDialog.DontUseNativeDialog
 
-        self.fileName, _ = QFileDialog.getOpenFileName(self,
+        fileName_dialog, _ = QFileDialog.getOpenFileName(self,
                 "QFileDialog.getOpenFileName()", "./",
                 "All Files (*);;Mat Files (*.mat)", options=options)
-        if self.fileName:
-
-            self.openFileNameEdit.setText(self.fileName)
-            self.save_file_path(self.fileName)
+        if fileName_dialog:
+            self.fileName=fileName_dialog
+            self.openFileNameEdit.setText(fileName_dialog)
+            self.save_file_path(fileName_dialog)
 
             # Data = scipy.io.loadmat(fileName)
             # PreData = Data['PreprocessedData']
@@ -112,3 +107,24 @@ class Experiment_data_Dialog_V2(QWidget):
         json.dump(filename, file_object)
         file_object.close()
 
+    def show_and_save(self,string):
+        self.openFileNameEdit.setText(string)
+        self.save_file_path(string)
+
+class Label(QLabel):
+
+    emit_filepath=pyqtSignal(str)
+    def __init__(self,*args,**kwargs):
+
+        super(Label, self).__init__(*args,**kwargs)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, evn):
+
+        self.emit_filepath.emit(evn.mimeData().text())
+
+        # 鼠标放开函数事件
+        evn.accept()
+    def dragMoveEvent(self, evn):
+        self.setStyleSheet('background: rgb(%d, %d, %d);' % (
+                220, 220, 220))

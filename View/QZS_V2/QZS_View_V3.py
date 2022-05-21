@@ -3,12 +3,10 @@ import sys
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon, QTextCursor
-from PyQt5.QtWidgets import QTabWidget, QWidget, QDockWidget, QTextEdit, QTableWidget, QPushButton, QStatusBar, \
-    QMainWindow, QTableWidgetItem, QAction, QToolBar, QSplitter, QMenu, QMessageBox, QApplication, QSizePolicy, \
-    QVBoxLayout, QLabel, QListWidgetItem, QHBoxLayout, QListWidget
+from PyQt5.QtWidgets import QTabWidget, QWidget, QDockWidget, QTextEdit, QTableWidget, QStatusBar, \
+    QMainWindow, QTableWidgetItem, QAction, QToolBar, QSplitter, QMenu, QMessageBox, QApplication, QSizePolicy
 from qt_material import QtStyleTools
 from win32process import SuspendThread, ResumeThread
 
@@ -23,10 +21,11 @@ from View.QZS_V2.Nonlinear_detection_dialog_V2 import detection_dialog_V2
 from View.QZS_V2.Residual_dialog import residual_dialog
 from View.QZS_V2.Result_save_dialog import result_save_dialog
 from View.QZS_V2.Select_govern_V2 import Select_govern_V2
-from View.QZS_V2.dock_left_dialog import dockleft
-from View.QZS_V2.harmonic_table_widget import harmonic_table_widget
+from View.QZS_V2.Dock_left_dialog import dockleft
+from View.QZS_V2.Harmonic_table_widget import harmonic_table_widget
 from View.QZS_V2.identification_algorithm.Thread_FourierSeriesExpansion import FourierSeriesExpansion_Thread
 from View.QZS_V2.identification_algorithm.Thread_Identification import Thread_Identification
+from View.QZS_V2.identification_algorithm.Thread_transfer_structure import Thread_transfer_structure
 
 BSER_DIR=os.path.dirname(os.path.realpath(__file__))
 
@@ -49,6 +48,13 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
         self.mu=[]
         self.switch=STOP
         self.list=[]
+        self.setWindowIcon(QIcon("images/win_ico.png"))
+
+        self.iter=[]
+        self.gamma_list=[]
+        self.increment_list=[]
+        self.mu_result=[]
+        self.extra_para=[]
 
         #self.apply_stylesheet(self, 'light_blue.xml', invert_secondary=True)
 
@@ -109,7 +115,6 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
     def create_toolbar(self):
         """创建系统工具栏"""
         self.toolbar = QToolBar()
-
         input_para_action = QAction(QIcon(os.path.join('images', 'input_para.png')), "导入参数...", self)
         input_para_action.setStatusTip("输入参数")
         input_para_action.triggered.connect(self.input_model)
@@ -125,10 +130,6 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
         save_result_action.triggered.connect(self.save_identification)
         self.toolbar.addAction(save_result_action)
 
-        key_import_action = QAction(QIcon(os.path.join('images', 'key_import.png')), "一键导入之前设置...", self)
-        key_import_action.setStatusTip("一键导入")
-        key_import_action.triggered.connect(self.a_key_to_import)
-        self.toolbar.addAction(key_import_action)
 
 
         left_spacer = QWidget()
@@ -234,7 +235,7 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
 
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setHorizontalHeaderLabels(("激励频率","时间" ,"响应","激励"))
+
 
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.table_right_menu)
@@ -263,8 +264,9 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
 
     def add_fre_res_dialog(self):
         """频响分析"""
-        self.fre_res_dialog=Frequency_response_dialog()
+        self.fre_res_dialog=Frequency_response_dialog(self.array)
         self.tabWidget.addTab(self.fre_res_dialog, "频响分析")
+        self.tabWidget.setCurrentWidget(self.fre_res_dialog)
 
 
 
@@ -309,7 +311,9 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
             if self.switch != STOP:
                 QMessageBox.warning(self, "错误", "正在执行中")
                 return
-
+            self.iter.clear()
+            self.gamma_list.clear()
+            self.increment_list.clear()
             self.switch = RUNNING
             self.loading=MetroCircleProgress(self)
             self.status.addPermanentWidget(self.loading)
@@ -334,18 +338,25 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
         """输入参数信息"""
         wizard = ClassWizard_V2()
         wizard.components['para_page'].para_log.signal_finish.connect(self.deal_input_data)
-        wizard.components['file_page'].experiment_dialog.input_data.connect(self.deal_table_data)
+        wizard.components['file_page'].experiment_dialog.input_displacemeng_data.connect(self.deal_displacemnet_data)
+        wizard.components['file_page'].experiment_dialog.input_coefficient_data.connect(self.deal_coefficient_data)
         wizard.setWindowModality(Qt.ApplicationModal)
         wizard.exec_()
 
-    def deal_table_data(self,array_temp):
+    def deal_displacemnet_data(self,array_temp):
         """创建表格内容"""
         self.array=array_temp
         #array=numpy.array(list,dtype=object)
 
         size=np.shape(array_temp)
 
+
+
         self.table.setRowCount(size[1])
+
+
+        self.table.setHorizontalHeaderLabels(("激励频率", "时间", "响应", "激励"))
+
 
         for row in range(self.table.rowCount()):
             for col in range(self.table.columnCount()):
@@ -358,6 +369,27 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
                     self.table.setItem(row, col, cell)
 
         self.create_harmonic_table()
+    def deal_coefficient_data(self,array_temp):
+        self.array = array_temp
+        size = np.shape(array_temp)
+
+        self.table.setRowCount(size[1])
+        self.table.setColumnCount(3)
+
+        self.table.setHorizontalHeaderLabels(("激励频率",  "响应系数", "激励系数"))
+        for row in range(self.table.rowCount()):
+            for col in range(self.table.columnCount()):
+
+                if col == 0:
+                    cell = QTableWidgetItem(str(array_temp[0, row][0][0, 0]))
+                    self.table.setItem(row, col, cell)
+                else:
+                    cell = QTableWidgetItem(str(np.shape(array_temp[0, row][col])))
+                    self.table.setItem(row, col, cell)
+
+        self.acquire_mu_and_extra_para()
+        self.list = Thread_transfer_structure(self.array)
+
 
     def create_harmonic_table(self):
         """谐波系数表格"""
@@ -365,6 +397,7 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
         self.acquire_mu_and_extra_para()
 
         self.update_status_message("计算谐波系数中")
+
 
         self.list = FourierSeriesExpansion_Thread(int(self.extra_para[-1]), self.array)
 
@@ -387,10 +420,14 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
 
     def save_identification(self):
         """保存辨识结果"""
-
-        save_result= result_save_dialog()
+        if len(self.iter) == 0:
+            QMessageBox.warning(self, "警告", "保存数据前请先辨识！")
+            return
+        save_result= result_save_dialog(self.iter,self.gamma_list,self.increment_list,self.mu_result)
         save_result.setWindowModality(Qt.ApplicationModal)
         save_result.exec_()
+
+
 
     def suspend_identification(self):
         """挂起线程"""
@@ -457,12 +494,11 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
         self.iter.append(list[0])
         self.gamma_list.append(list[1])
         self.increment_list.append(list[2])
+        self.mu_result.append(list[3])
 
+        self.residual_tab.gamma_plot.plot(self.iter,self.gamma_list, clear=True,pen=pg.mkPen(color='r', width=2))
 
-
-        self.residual_tab.gamma_plot.plot(self.iter,self.gamma_list, clear=True,pen=pg.mkPen(color='k', width=2))
-
-        self.residual_tab.increment_plot.plot(self.iter,self.increment_list, clear=True,pen=pg.mkPen(color='k', width=2))
+        self.residual_tab.increment_plot.plot(self.iter,self.increment_list, clear=True,pen=pg.mkPen(color='b', width=2))
 
         pg.QtGui.QApplication.processEvents()
 
@@ -481,6 +517,9 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
         self.status.showMessage("辨识结束，请在array数组中查看结果！")
         self.switch = STOP
         self.status.removeWidget(self.loading)
+
+
+
 
     def init_task_error_callback(self, str):
         """辨识失败后的任务"""
@@ -531,14 +570,21 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
         self.residual_tab=residual_dialog()
         self.tabWidget.addTab(self.residual_tab, "残差监控")
 
+        self.tabWidget.setCurrentWidget(self.residual_tab)
+
     def add_amplitude_dialog(self):
 
         self.amplitude_tab = Amplitude_harmonic_dialog(self.list)
         self.tabWidget.addTab(self.amplitude_tab , "谐波幅值")
+        self.tabWidget.setCurrentWidget(self.amplitude_tab)
 
     def add_nonlinear_dialog(self):
-        self.tab_nonlinear_detection = detection_dialog_V2()
+        if len(self.extra_para)==0:
+            QMessageBox.warning(self,"警告","请先导入数据")
+            return
+        self.tab_nonlinear_detection = detection_dialog_V2(int(self.extra_para[-1]),self.list)
         self.tabWidget.addTab(self.tab_nonlinear_detection, "非线性检测")
+        self.tabWidget.setCurrentWidget(self.tab_nonlinear_detection)
     def run_action(self,index):
 
         if index==0:
@@ -550,11 +596,6 @@ class QZSUI_V3(QMainWindow,QtStyleTools):
         else :
             self.add_amplitude_dialog()
 
-
-    def a_key_to_import(self):
-
-
-        pass
 
 
 if __name__ == '__main__':

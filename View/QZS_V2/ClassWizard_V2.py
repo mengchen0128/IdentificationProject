@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import scipy.io
 from PyQt5.QtWidgets import QWizard, QLabel, QVBoxLayout, QWizardPage, QGroupBox, QGridLayout, QMessageBox
 
@@ -84,15 +85,22 @@ class ClassWizard_V2(QWizard,MainMixin):
         file_object.close()
         self.correct=True
 
-
     def output_data(self):
         if self.components['file_page'].experiment_dialog.fileName=="":
             QMessageBox.warning(self, "警告", "请输入文件！")
         else:
-            Data = scipy.io.loadmat(self.components['file_page'].experiment_dialog.fileName)
-            PreData = Data['PreprocessedData']
+            if self.components['file_page'].experiment_dialog.radio1.isChecked():
 
-            self.components['file_page'].experiment_dialog.input_data.emit(PreData)
+                Data = scipy.io.loadmat(self.components['file_page'].experiment_dialog.fileName)
+                PreData = Data['PreprocessedData']
+
+                self.components['file_page'].experiment_dialog.input_displacemeng_data.emit(PreData)
+            elif self.components['file_page'].experiment_dialog.radio2.isChecked():
+                Data = scipy.io.loadmat(self.components['file_page'].experiment_dialog.fileName)
+                PreData = Data['PreprocessedData']
+                self.components['file_page'].experiment_dialog.input_coefficient_data.emit(PreData)
+
+
     def accept(self):
 
         self.save_para()

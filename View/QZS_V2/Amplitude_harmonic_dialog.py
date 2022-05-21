@@ -68,16 +68,17 @@ class Amplitude_harmonic_dialog(QWidget):
         a=self.list[value].omega
         self.leftlabel.setText("激励频率:"+str(round(a,1)))
 
-        # n=np.shape(self.list[value].X)[1]
+        n=np.shape(self.list[value].X)[0]
         # x=[i for i in range(1,n+1)]
+        self.response.plot([0,0],[0,0], clear=True)
+        for i in range(0,n):
 
-        self.response.plot(self.list[value].X[0,:],pen=pg.mkPen('b', width=3),clear=True)
+            self.response.plot(self.list[value].X[i,:],pen=pg.mkPen('b', width=3))
 
-        self.response.plot(self.list[value].X[1,:],pen=pg.mkPen('r', width=3))
+            #self.response.plot(self.list[value].X[1,:],pen=pg.mkPen('r', width=3))
 
-
-        self.excitation.plot(self.list[value].F[0,:],pen=pg.mkPen('b', width=3),clear=True)
-        self.excitation.plot(self.list[value].F[1,:],pen=pg.mkPen('r', width=2))
+            #self.excitation.plot(self.list[value].F[0,:],pen=pg.mkPen('b', width=3),clear=True)
+            self.excitation.plot(self.list[value].F[1,:],pen=pg.mkPen('r', width=3))
 
         pg.QtGui.QApplication.processEvents()
 
